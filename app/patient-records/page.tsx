@@ -14,11 +14,11 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { useToast } from "@/components/ui/toast"
-import { ToastAction } from "@/components/ui/toast"
+import { useToast } from "@/hooks/use-toast"
 import PhoneInput from "react-phone-number-input"
 import "react-phone-number-input/style.css"
 import { useFormContext } from "@/contexts/FormContext"
+import { savePatientRecord } from "./actions" // Import the server action
 
 export default function PatientRecordsPage() {
   const { toast } = useToast()
@@ -26,6 +26,7 @@ export default function PatientRecordsPage() {
   const [date, setDate] = useState<Date | undefined>(
     formData.patientInfo.dateOfBirth ? new Date(formData.patientInfo.dateOfBirth) : undefined,
   )
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -55,8 +56,9 @@ export default function PatientRecordsPage() {
     })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsSubmitting(true)
 
     const requiredFields = [
       "firstName",
@@ -78,13 +80,37 @@ export default function PatientRecordsPage() {
       toast({
         title: "Missing Required Information",
         description: "Please fill in all required fields marked with an asterisk (*).",
+        variant: "destructive",
       })
-    } else {
-      console.log(formData.patientInfo)
+      setIsSubmitting(false)
+      return
+    }
+
+    try {
+      // Replace direct DB operation with server action
+      const result = await savePatientRecord(formData.patientInfo)
+      
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: `Patient record for ${formData.patientInfo.firstName} ${formData.patientInfo.lastName} has been saved.`,
+        })
+      } else {
+        toast({
+          title: "Error Saving Record",
+          description: result.error || "Unknown database error occurred",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error saving patient record:", error)
       toast({
-        title: "Patient Record Saved",
-        description: "The patient record has been successfully saved.",
+        title: "System Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred while processing your request.",
+        variant: "destructive",
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -363,8 +389,8 @@ export default function PatientRecordsPage() {
           </CardContent>
         </Card>
 
-        <Button type="submit" className="w-full">
-          Save Patient Record
+        <Button type="submit" className="w-full" disabled={isSubmitting}>
+          {isSubmitting ? "Saving..." : "Save Patient Record"}
         </Button>
       </form>
     </div>
