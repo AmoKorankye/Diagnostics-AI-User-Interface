@@ -56,7 +56,7 @@ export async function savePatientRecord(patientInfo: PatientInfo) {
       userId: userId // Corrected field name to match the schema
     });
     
-    return { success: true }
+    return { success: true, userId: userId }
   } catch (error) {
     console.error("Server action error:", error)
     

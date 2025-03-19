@@ -19,6 +19,8 @@ interface Message {
 interface ChatProps {
   scanType: string
   diagnosisArea: string
+  bodyPartImaged: string;
+  fracturedBone?: string;
 }
 
 export function Chat({ scanType, diagnosisArea }: ChatProps) {
@@ -41,7 +43,7 @@ export function Chat({ scanType, diagnosisArea }: ChatProps) {
         ...formData.chatMessages,
         {
           id: Date.now(),
-          content: `I see you've uploaded a ${scanType} for a diagnosis focused on ${diagnosisArea}. Let's get started!`,
+          content: `I see you've uploaded a ${scanType} for a diagnosis focused on ${diagnosisArea}. I am here to assist you if you have any questions. Let's get started!`,
           role: "assistant"
         }
       ]);

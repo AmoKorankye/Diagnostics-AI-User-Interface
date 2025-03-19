@@ -27,6 +27,10 @@ export default function PatientRecordsPage() {
     formData.patientInfo.dateOfBirth ? new Date(formData.patientInfo.dateOfBirth) : undefined,
   )
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Ensure gender and bloodGroup have initial values to prevent hydration errors
+  const gender = formData.patientInfo.gender || ""
+  const bloodGroup = formData.patientInfo.bloodGroup || ""
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -91,6 +95,12 @@ export default function PatientRecordsPage() {
       const result = await savePatientRecord(formData.patientInfo)
       
       if (result.success) {
+        // Store userId in sessionStorage if available
+        if (result.userId) {
+          sessionStorage.setItem('currentUserId', result.userId.toString());
+          console.log('User ID stored in session storage:', result.userId);
+        }
+        
         toast({
           title: "Success",
           description: `Patient record for ${formData.patientInfo.firstName} ${formData.patientInfo.lastName} has been saved.`,
@@ -148,7 +158,7 @@ export default function PatientRecordsPage() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="gender">Gender *</Label>
-              <Select name="gender" value={formData.patientInfo.gender} onValueChange={handleSelectChange("gender")}>
+              <Select name="gender" value={gender} onValueChange={handleSelectChange("gender")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
@@ -318,7 +328,7 @@ export default function PatientRecordsPage() {
               <Label htmlFor="bloodGroup">Blood Group</Label>
               <Select
                 name="bloodGroup"
-                value={formData.patientInfo.bloodGroup}
+                value={bloodGroup}
                 onValueChange={handleSelectChange("bloodGroup")}
               >
                 <SelectTrigger>

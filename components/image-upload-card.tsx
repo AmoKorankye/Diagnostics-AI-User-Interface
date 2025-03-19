@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useFormContext } from "@/contexts/FormContext"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/use-toast"
 
 interface ImageUploadCardProps {
   onImageUpload: (image: string, scanType: string, area: string, bodyPartImaged: string, fracturedBone?: string) => void
@@ -17,16 +18,56 @@ interface ImageUploadCardProps {
 export function ImageUploadCard({ onImageUpload }: ImageUploadCardProps) {
   const { formData, updateFormData } = useFormContext()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { toast } = useToast()
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit check
+        toast({
+          title: "Upload Failed",
+          description: "Image file is too large. Maximum size is 10MB.",
+          variant: "destructive",
+        })
+        return
+      }
+      
       const reader = new FileReader()
+      
       reader.onloadend = () => {
         const imageData = reader.result as string
         updateFormData({ currentScan: { ...formData.currentScan, image: imageData } })
+        toast({
+          title: "Image Uploaded",
+          description: "Your scan image has been successfully uploaded.",
+        })
       }
-      reader.readAsDataURL(file)
+      
+      reader.onerror = () => {
+        toast({
+          title: "Upload Failed",
+          description: "There was an error processing your image. Please try again.",
+          variant: "destructive",
+        })
+      }
+      
+      reader.onabort = () => {
+        toast({
+          title: "Upload Cancelled",
+          description: "The image upload was cancelled.",
+          variant: "destructive",
+        })
+      }
+      
+      try {
+        reader.readAsDataURL(file)
+      } catch (error) {
+        toast({
+          title: "Upload Failed",
+          description: "There was an error reading your file. Please try a different file.",
+          variant: "destructive",
+        })
+      }
     }
   }
 
@@ -46,6 +87,11 @@ export function ImageUploadCard({ onImageUpload }: ImageUploadCardProps) {
       )
       updateFormData({
         currentScan: { ...formData.currentScan, isSubmitted: true },
+      })
+      
+      toast({
+        title: "Scan Submitted",
+        description: "Your scan has been successfully submitted for analysis.",
       })
     }
   }

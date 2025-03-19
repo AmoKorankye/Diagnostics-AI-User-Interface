@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ScanManagement } from "@/components/scan-management"
 import { Chat } from "@/components/chat"
 import { useFormContext } from "@/contexts/FormContext"
@@ -8,6 +8,12 @@ import { Toaster } from "@/components/ui/toaster"
 
 export default function DashboardPage() {
   const { formData, addRecentUpload, updateFormData } = useFormContext()
+  const [mounted, setMounted] = useState(false)
+
+  // Only render the component after client-side hydration
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleImageUpload = (
     image: string,
@@ -35,6 +41,11 @@ export default function DashboardPage() {
     })
   }
 
+  // Don't render content until after hydration
+  if (!mounted) {
+    return null
+  }
+
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -54,4 +65,3 @@ export default function DashboardPage() {
     </>
   )
 }
-
