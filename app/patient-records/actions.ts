@@ -1,7 +1,9 @@
 'use server'
 
+import { auth } from "@/lib/auth";
 import { db } from "@/src/db"
-import { patientsTable, usersTable } from "@/src/db/schema"
+import { patientsTable} from "@/src/db/schema"
+import { headers } from "next/headers";
 
 type PatientInfo = {
   firstName: string
@@ -24,17 +26,10 @@ type PatientInfo = {
 
 export async function savePatientRecord(patientInfo: PatientInfo) {
   try {
-    // First create a new user
-    const userResult = await db.insert(usersTable).values({
-      firstName: patientInfo.firstName,
-      lastName: patientInfo.lastName,
-      email: patientInfo.email || `${patientInfo.firstName.toLowerCase()}.${patientInfo.lastName.toLowerCase()}@example.com`, // Fallback email
-      phone: patientInfo.phone,
-    }).returning({ insertedId: usersTable.id });
-    
-    // Extract the auto-generated user ID
-    const userId = userResult[0].insertedId;
-    
+    const session = await auth.api.getSession({
+      headers: await headers(),
+  });
+     
     // Then create the patient record with the user ID
     await db.insert(patientsTable).values({
       firstName: patientInfo.firstName,
@@ -53,10 +48,10 @@ export async function savePatientRecord(patientInfo: PatientInfo) {
       height: patientInfo.height ? parseFloat(patientInfo.height) : null,
       weight: patientInfo.weight ? parseFloat(patientInfo.weight) : null,
       doctorsName: patientInfo.doctorsName,
-      userId: userId // Corrected field name to match the schema
+      userId: session?.user.id
     });
     
-    return { success: true, userId: userId }
+    return { success: true }
   } catch (error) {
     console.error("Server action error:", error)
     

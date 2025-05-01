@@ -4,7 +4,9 @@ import "./globals.css"
 import { Navbar } from "@/components/navbar"
 import { FormProvider } from "@/contexts/FormContext"
 import { ClearFormOnRefresh } from "@/components/clear-form-on-refresh"
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from "sonner"
+import { Toaster as OldToaster } from "@/components/ui/toaster"
+
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -21,6 +23,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
+        <Toaster theme="system"/>
+        <OldToaster/>
         <FormProvider>
           <ClearFormOnRefresh />
           <Navbar />

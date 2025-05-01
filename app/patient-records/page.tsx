@@ -19,9 +19,11 @@ import PhoneInput from "react-phone-number-input"
 import "react-phone-number-input/style.css"
 import { useFormContext } from "@/contexts/FormContext"
 import { savePatientRecord } from "./actions" // Import the server action
+import { useRouter } from "next/navigation"
 
 export default function PatientRecordsPage() {
   const { toast } = useToast()
+  const router = useRouter()
   const { formData, updateFormData } = useFormContext()
   const [date, setDate] = useState<Date | undefined>(
     formData.patientInfo.dateOfBirth ? new Date(formData.patientInfo.dateOfBirth) : undefined,
@@ -95,16 +97,12 @@ export default function PatientRecordsPage() {
       const result = await savePatientRecord(formData.patientInfo)
       
       if (result.success) {
-        // Store userId in sessionStorage if available
-        if (result.userId) {
-          sessionStorage.setItem('currentUserId', result.userId.toString());
-          console.log('User ID stored in session storage:', result.userId);
-        }
-        
         toast({
           title: "Success",
           description: `Patient record for ${formData.patientInfo.firstName} ${formData.patientInfo.lastName} has been saved.`,
+          duration: 1000,
         })
+        router.replace("/")
       } else {
         toast({
           title: "Error Saving Record",
