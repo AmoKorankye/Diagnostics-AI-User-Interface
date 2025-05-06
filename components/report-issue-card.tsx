@@ -16,11 +16,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useFormContext } from "@/contexts/FormContext"
+import { submitScanResults } from "@/services/api"
 
 export function ReportIssueCard() {
   const { formData, updateFormData } = useFormContext()
   const [showAlert, setShowAlert] = useState(false)
   const [alertMessage, setAlertMessage] = useState("")
+  const [alertTitle, setAlertTitle] = useState("Error")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const validateEmail = (email: string) => {
     const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
@@ -29,6 +32,7 @@ export function ReportIssueCard() {
 
   const addEmail = () => {
     if (!formData.currentEmail.trim()) {
+      setAlertTitle("Error")
       setAlertMessage("Please enter an email address.")
       setShowAlert(true)
       return
@@ -38,10 +42,12 @@ export function ReportIssueCard() {
         updateFormData({ emails: [...formData.emails, formData.currentEmail] })
         updateFormData({ currentEmail: "" })
       } else {
+        setAlertTitle("Error")
         setAlertMessage("This email has already been added.")
         setShowAlert(true)
       }
     } else {
+      setAlertTitle("Error")
       setAlertMessage("Invalid Email")
       setShowAlert(true)
     }
@@ -51,15 +57,54 @@ export function ReportIssueCard() {
     updateFormData({ emails: formData.emails.filter((e) => e !== email) })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (formData.emails.length === 0) {
+      setAlertTitle("Error")
       setAlertMessage("No Email Address Found")
       setShowAlert(true)
       return
     }
-    // Proceed with form submission
-    console.log("Form submitted successfully")
+
+    try {
+      setIsSubmitting(true)
+      
+      // Get scan type and diagnosis area from the currentScan in formData
+      const scanType = formData.currentScan?.scanType || "Scan"
+      const diagnosisArea = formData.currentScan?.diagnosisArea || "General"
+      
+      // Prepare data for submission to the API
+      const submissionData = {
+        receiver_emails: formData.emails,
+        subject: formData.subject,
+        description: formData.description,
+        scan_type: scanType,
+        diagnosis_area: diagnosisArea
+      }
+
+      console.log("Submitting data:", submissionData)
+
+      // Send data to the backend API
+      const response = await submitScanResults(submissionData)
+      
+      // Handle response
+      if (response.status === "success") {
+        setAlertTitle("Success")
+        setAlertMessage("Results shared successfully!")
+        // Reset form after successful submission if needed
+        // updateFormData({ emails: [], subject: "", description: "", currentEmail: "" })
+      } else {
+        setAlertTitle("Error")
+        setAlertMessage(`Failed to share results: ${response.message || "Unknown error"}`)
+      }
+    } catch (error) {
+      setAlertTitle("Error")
+      setAlertMessage("Failed to connect to the server. Please try again later.")
+      console.error("Submission error:", error)
+    } finally {
+      setIsSubmitting(false)
+      setShowAlert(true)
+    }
   }
 
   return (
@@ -116,8 +161,8 @@ export function ReportIssueCard() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button type="submit" className="w-full">
-            Share Results
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? "Sharing..." : "Share Results"}
           </Button>
         </CardFooter>
       </form>
@@ -125,7 +170,7 @@ export function ReportIssueCard() {
       <AlertDialog open={showAlert} onOpenChange={setShowAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Error</AlertDialogTitle>
+            <AlertDialogTitle>{alertTitle}</AlertDialogTitle>
             <AlertDialogDescription>{alertMessage}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
