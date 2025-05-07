@@ -10,6 +10,8 @@ import { useFormContext } from "@/contexts/FormContext"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
+
 
 interface ImageUploadCardProps {
   onImageUpload: (image: string, scanType: string, area: string, bodyPartImaged: string, fracturedBone?: string) => void
@@ -26,8 +28,7 @@ export function ImageUploadCard({ onImageUpload }: ImageUploadCardProps) {
       if (file.size > 10 * 1024 * 1024) { // 10MB limit check
         toast({
           title: "Upload Failed",
-          description: "Image file is too large. Maximum size is 10MB.",
-          variant: "destructive",
+          description: "Image file is too large. Maximum size is 10MB."
         })
         return
       }
@@ -46,16 +47,14 @@ export function ImageUploadCard({ onImageUpload }: ImageUploadCardProps) {
       reader.onerror = () => {
         toast({
           title: "Upload Failed",
-          description: "There was an error processing your image. Please try again.",
-          variant: "destructive",
+          description: "There was an error processing your image. Please try again."
         })
       }
       
       reader.onabort = () => {
         toast({
           title: "Upload Cancelled",
-          description: "The image upload was cancelled.",
-          variant: "destructive",
+          description: "The image upload was cancelled."
         })
       }
       
@@ -64,8 +63,7 @@ export function ImageUploadCard({ onImageUpload }: ImageUploadCardProps) {
       } catch (error) {
         toast({
           title: "Upload Failed",
-          description: "There was an error reading your file. Please try a different file.",
-          variant: "destructive",
+          description: "There was an error reading your file. Please try a different file."
         })
       }
     }
