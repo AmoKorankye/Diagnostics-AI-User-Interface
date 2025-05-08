@@ -10,12 +10,13 @@ import { format } from "date-fns"
 import { Download } from "lucide-react"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
+import { toast } from "sonner"
 
 export default function SummaryReportPage() {
   const { formData } = useFormContext()
   const reportRef = useRef<HTMLDivElement>(null)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [diagnosisParagraphs, setDiagnosisParagraphs] = useState<string[]>(["", "", ""])
+  const [diagnosisParagraphs, setDiagnosisParagraphs] = useState<string[]>([""])
   const [isLoading, setIsLoading] = useState(false)
   const [modelResult, setModelResult] = useState<any>(null)
   const [heatmapImage, setHeatmapImage] = useState<string | null>(null)
@@ -44,10 +45,9 @@ export default function SummaryReportPage() {
       // First paragraph - Introduction and methodology (static)
       const paragraph1 = `This report presents the findings from a ${latestScan.scanType} examination of the patient's ${latestScan.bodyPartImaged.toLowerCase()}${latestScan.fracturedBone ? ` (${latestScan.fracturedBone})` : ""}, focusing on the assessment of ${latestScan.diagnosisArea.toLowerCase()}. The scan was performed using standard protocols and evaluated by our AI-assisted diagnostic system in conjunction with medical professionals.`
 
-      setDiagnosisParagraphs([paragraph1, "", ""])
-      fetchAnalysisAndRecommendations()
+      setDiagnosisParagraphs([paragraph1])
     } else {
-      setDiagnosisParagraphs(["No scan data available.", "", ""])
+      setDiagnosisParagraphs(["No scan data available."])
     }
   }, [latestScan])
 
@@ -58,14 +58,11 @@ export default function SummaryReportPage() {
     try {
       // Check if we have model results from localStorage first
       if (modelResult) {
-        // If we have model results, use fallback content but don't show error
-        const fallbackParagraph2 = getFallbackAnalysis(latestScan)
-        const fallbackParagraph3 = getFallbackRecommendations(latestScan)
-        setDiagnosisParagraphs([diagnosisParagraphs[0], fallbackParagraph2, fallbackParagraph3])
+        // No need to set additional paragraphs
         return
       }
       
-      // Otherwise try to fetch from API (this will likely fail if there's no API endpoint)
+      // Try to fetch from API, but no paragraphs will be added either way
       try {
         const response = await fetch("/api/summary-analysis", {
           method: "POST",
@@ -81,104 +78,72 @@ export default function SummaryReportPage() {
         })
 
         if (!response.ok) {
-          // Don't throw error, just fall back silently
           throw new Error()
         }
 
-        const data = await response.json()
-
-        // Update paragraphs with AI-generated content
-        setDiagnosisParagraphs([
-          diagnosisParagraphs[0], // Keep the first paragraph
-          data.analysis,
-          data.recommendations,
-        ])
+        // We're not using the response data since we're removing paragraphs 2 and 3
       } catch (apiError) {
-        // Silently fall back to static content without showing error
-        const fallbackParagraph2 = getFallbackAnalysis(latestScan)
-        const fallbackParagraph3 = getFallbackRecommendations(latestScan)
-        setDiagnosisParagraphs([diagnosisParagraphs[0], fallbackParagraph2, fallbackParagraph3])
+        // No fallback needed as we're not displaying paragraphs 2 and 3
       }
     } catch (error) {
       console.error("Error in analysis process:", error)
-      
-      // Fallback to static content if anything fails
-      const fallbackParagraph2 = getFallbackAnalysis(latestScan)
-      const fallbackParagraph3 = getFallbackRecommendations(latestScan)
-      setDiagnosisParagraphs([diagnosisParagraphs[0], fallbackParagraph2, fallbackParagraph3])
+      // No fallback needed
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Fallback functions in case the API fails
+  // These fallback functions are not needed anymore, but keeping them with empty returns
+  // in case they're referenced elsewhere in the code
   const getFallbackAnalysis = (scan: any) => {
-    const { scanType, diagnosisArea, bodyPartImaged, fracturedBone } = scan
-
-    if (diagnosisArea === "Bone Fractures") {
-      return `Analysis of the ${scanType} reveals ${fracturedBone ? `the ${fracturedBone} shows` : "there are"} signs consistent with a fracture. The fracture line is visible with moderate displacement. There is minimal surrounding soft tissue swelling and no evidence of joint involvement.`
-    } else if (diagnosisArea === "Brain Tumors") {
-      return `The ${scanType} of the brain demonstrates a ${Math.floor(Math.random() * 3) + 1}cm lesion in the ${["frontal", "temporal", "parietal", "occipital"][Math.floor(Math.random() * 4)]} lobe. The mass shows ${["homogeneous", "heterogeneous"][Math.floor(Math.random() * 2)]} enhancement with contrast. There is minimal surrounding edema and no midline shift observed.`
-    } else if (diagnosisArea === "Breast Cancer") {
-      return `Examination of the breast tissue reveals a ${Math.floor(Math.random() * 2) + 1}cm ${["well-defined", "irregular"][Math.floor(Math.random() * 2)]} mass in the ${["upper outer", "upper inner", "lower outer", "lower inner"][Math.floor(Math.random() * 4)]} quadrant. The lesion demonstrates ${["spiculated", "smooth"][Math.floor(Math.random() * 2)]} margins and ${["increased", "heterogeneous"][Math.floor(Math.random() * 2)]} density.`
-    } else if (diagnosisArea === "Lung Cancer") {
-      return `The ${scanType} of the chest shows a ${Math.floor(Math.random() * 3) + 2}cm ${["solid", "part-solid", "ground-glass"][Math.floor(Math.random() * 3)]} nodule in the ${["right upper", "right middle", "right lower", "left upper", "left lower"][Math.floor(Math.random() * 5)]} lobe. The lesion has ${["smooth", "irregular", "spiculated"][Math.floor(Math.random() * 3)]} margins.`
-    } else {
-      return `The ${scanType} examination reveals findings consistent with the clinical suspicion of ${diagnosisArea.toLowerCase()}. The affected area shows characteristic changes that warrant further clinical correlation.`
-    }
+    return "";
   }
 
   const getFallbackRecommendations = (scan: any) => {
-    const { diagnosisArea } = scan
-
-    return `Based on these findings, we recommend ${
-      diagnosisArea === "Bone Fractures"
-        ? "orthopedic consultation for fracture management and follow-up imaging in 4-6 weeks to assess healing progress."
-        : diagnosisArea === "Brain Tumors"
-          ? "neurosurgical consultation, additional MRI with spectroscopy, and consideration for stereotactic biopsy."
-          : diagnosisArea === "Breast Cancer"
-            ? "surgical consultation, consideration for ultrasound-guided biopsy, and comprehensive breast cancer screening."
-            : diagnosisArea === "Lung Cancer"
-              ? "pulmonology consultation, PET-CT for staging, and consideration for CT-guided biopsy or bronchoscopy."
-              : "clinical correlation with the patient's symptoms and additional diagnostic tests as appropriate."
-    }`
+    return "";
   }
 
   const generatePDF = async () => {
-    if (!reportRef.current) return
-
-    setIsGenerating(true)
-
     try {
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 1.5, // Reduced scale for better fit
-        useCORS: true,
-        logging: false,
-      })
-
-      const imgData = canvas.toDataURL("image/png")
+      setIsLoading(true);
+      setIsGenerating(true);
+      
+      // Get content element to convert to PDF
+      const content = document.getElementById('report-content');
+      if (!content) {
+        throw new Error("Report content element not found");
+      }
+      
+      // Use html2canvas to create an image of the report content
+      const canvas = await html2canvas(content);
+      
+      // Initialize jsPDF
       const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      })
-
-      const imgWidth = 210
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
-
-      // Check if content exceeds page height and scale if needed
-      const maxHeight = 297 // A4 height in mm
-      const scaleFactor = imgHeight > maxHeight ? maxHeight / imgHeight : 1
-
-      const finalWidth = imgWidth * scaleFactor
-      const finalHeight = imgHeight * scaleFactor
-
-      pdf.addImage(imgData, "PNG", 0, 0, finalWidth, finalHeight)
-      pdf.save(`medical_report_${formData.patientInfo.lastName}_${new Date().toISOString().split("T")[0]}.pdf`)
+        orientation: 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      
+      // Add the image to the PDF
+      const imgData = canvas.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      
+      // Save PDF locally with a descriptive filename
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `diagnostic-report-${timestamp}.pdf`;
+      pdf.save(filename);
+      
+      // Store the PDF data in localStorage if needed for sharing later
+      // This stores just the reference that a PDF was generated, not the actual PDF
+      localStorage.setItem('lastGeneratedPdfTimestamp', timestamp);
+      
+      toast.success('PDF downloaded successfully');
     } catch (error) {
-      console.error("Error generating PDF:", error)
+      console.error('Error generating PDF:', error);
+      toast.error(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      setIsGenerating(false)
+      setIsLoading(false);
+      setIsGenerating(false);
     }
   }
 
@@ -186,13 +151,13 @@ export default function SummaryReportPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Summary Report</h1>
-        <Button onClick={generatePDF} disabled={isGenerating || !latestScan} className="flex items-center gap-2">
+        <Button onClick={generatePDF} disabled={isLoading || !latestScan} className="flex items-center gap-2">
           <Download className="h-4 w-4" />
-          {isGenerating ? "Generating..." : "Download as PDF"}
+          {isLoading ? "Generating..." : "Download as PDF"}
         </Button>
       </div>
 
-      <div ref={reportRef} className="bg-white p-4 md:p-6 rounded-lg shadow-sm">
+      <div ref={reportRef} id="report-content" className="bg-white p-4 md:p-6 rounded-lg shadow-sm">
         <Card className="overflow-hidden">
           <CardContent className="p-0">
             <div className="p-4 md:p-6">
@@ -326,7 +291,7 @@ export default function SummaryReportPage() {
                                       ? "8%"
                                       : latestScan.diagnosisArea === "Lung Cancer"
                                         ? "14%"
-                                      : "12%"}
+                                        : "12%"}
                               </span>
                             </div>
                             <div className="flex justify-between">

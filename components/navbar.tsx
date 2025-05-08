@@ -35,7 +35,7 @@ export function Navbar() {
     { href: "/patient-records", label: "Patient Records" },
     { href: "/", label: "Dashboard" },
     { href: "/summary-report", label: "Summary Report" },
-    { href: "/share-results", label: "Share Results" },
+    // { href: "/share-results", label: "Share Results" },
   ]
 
   const handleSignOut = async () => {

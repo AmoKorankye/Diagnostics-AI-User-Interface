@@ -27,183 +27,130 @@ export function Chat({ scanType, diagnosisArea, bodyPartImaged, fracturedBone }:
   const { formData, updateChatMessages } = useFormContext()
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
+  // Initial assistant messages
   useEffect(() => {
     if (formData.chatMessages.length === 0) {
       updateChatMessages([
         {
           id: 1,
-          content: "Hello, my name is Kwaku from diagnostics AI. I'm here to assist you.",
+          content: "Hello, my name is Kwaku from Diagnostics AI. I'm here to assist you.",
           role: "assistant",
         },
       ])
     }
 
-    if (scanType && diagnosisArea && formData.currentScan.isSubmitted && formData.chatMessages.length === 1) {
-      handleScanUploadMessage()
+    if (
+      scanType &&
+      diagnosisArea &&
+      formData.currentScan.isSubmitted &&
+      formData.chatMessages.length === 1
+    ) {
+      updateChatMessages([
+        ...formData.chatMessages,
+        {
+          id: Date.now(),
+          content: `I see you've uploaded a ${scanType} for a diagnosis focused on ${diagnosisArea} of the ${bodyPartImaged.toLowerCase()}${
+            fracturedBone ? ` (${fracturedBone})` : ""
+          }. How can I help you with this scan?`,
+          role: "assistant",
+        },
+      ])
     }
   }, [scanType, diagnosisArea, bodyPartImaged, fracturedBone, formData.chatMessages, formData.currentScan.isSubmitted])
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom on new messages
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]")
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight
-      }
-    }
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [formData.chatMessages])
 
-  const handleScanUploadMessage = async () => {
-    setIsLoading(true)
-    try {
-      // Convert the existing messages to the format expected by the API
-      const apiMessages = formData.chatMessages.map((msg) => ({
-        content: msg.content,
-        role: msg.role,
-      }))
-
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: apiMessages,
-          scanInfo: {
-            scanType,
-            diagnosisArea,
-            bodyPartImaged,
-            fracturedBone,
-          },
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to get response")
-      }
-
-      const data = await response.json()
-
-      updateChatMessages([
-        ...formData.chatMessages,
-        {
-          id: Date.now(),
-          content: data.text || "I see you've uploaded a scan. How can I help you with this?",
-          role: "assistant",
-        },
-      ])
-    } catch (error) {
-      console.error("Error getting scan upload message:", error)
-      updateChatMessages([
-        ...formData.chatMessages,
-        {
-          id: Date.now(),
-          content: `I see you've uploaded a ${scanType} for a diagnosis focused on ${diagnosisArea} of the ${bodyPartImaged.toLowerCase()}${fracturedBone ? ` (${fracturedBone})` : ""}. Let's get started!`,
-          role: "assistant",
-        },
-      ])
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const handleSend = async () => {
-    if (input.trim() && !isLoading) {
-      const userMessage = { id: Date.now(), content: input, role: "user" as const }
-      updateChatMessages([...formData.chatMessages, userMessage])
-      setInput("")
-      setIsLoading(true)
+    if (!input.trim() || isLoading) return
 
-      try {
-        // Convert the messages to the format expected by the API
-        const apiMessages = [...formData.chatMessages, userMessage].map((msg) => ({
-          content: msg.content,
-          role: msg.role,
-        }))
+    const userMessage = {
+      id: Date.now(),
+      content: input,
+      role: "user" as const,
+    }
 
-        const response = await fetch("/api/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messages: apiMessages,
-            scanInfo: {
-              scanType,
-              diagnosisArea,
-              bodyPartImaged,
-              fracturedBone,
-            },
-          }),
-        })
+    const tempLoadingMessage = {
+      id: Date.now() + 1,
+      content: "Thinking...",
+      role: "assistant" as const,
+    }
 
-        if (!response.ok) {
-          throw new Error("Failed to get response")
-        }
+    updateChatMessages([...formData.chatMessages, userMessage, tempLoadingMessage])
+    setInput("")
+    setIsLoading(true)
 
-        const reader = response.body?.getReader()
-        if (!reader) throw new Error("No reader available")
+    try {
+      // Use the correct Flask API URL - make sure this matches your Flask server setup
+      // If your Flask server is running on a different port or host, adjust accordingly
+      const flaskApiUrl = 'http://127.0.0.1:5000/chatbot';
+      
+      console.log("Sending request to:", flaskApiUrl);
+      console.log("Request payload:", JSON.stringify({ message: userMessage.content }));
 
-        let assistantMessage = ""
-        const decoder = new TextDecoder()
+      const response = await fetch(flaskApiUrl, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          // Add this header to explicitly allow cross-origin requests
+          "Access-Control-Allow-Origin": "*"
+        },
+        // Include credentials if your API requires authentication
+        // credentials: 'include', 
+        body: JSON.stringify({ 
+          message: userMessage.content 
+        }),
+      });
+      
+      console.log("Response status:", response.status);
+      
+      const data = await response.json();
+      console.log("Response data:", data);
 
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
+      const filteredMessages = formData.chatMessages.filter(
+        (msg) => msg.content !== "Thinking..."
+      );
 
-          const chunk = decoder.decode(value)
-          try {
-            const lines = chunk.split("\n").filter((line) => line.trim() !== "")
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const data = line.slice(6)
-                if (data === "[DONE]") continue
-
-                try {
-                  const parsed = JSON.parse(data)
-                  if (parsed.type === "text-delta") {
-                    assistantMessage += parsed.text
-                    updateChatMessages([
-                      ...formData.chatMessages,
-                      userMessage,
-                      {
-                        id: Date.now(),
-                        content: assistantMessage,
-                        role: "assistant",
-                      },
-                    ])
-                  }
-                } catch (e) {
-                  console.error("Error parsing JSON:", e)
-                }
-              }
-            }
-          } catch (e) {
-            console.error("Error processing chunk:", e)
-          }
-        }
-
-        if (!assistantMessage) {
-          throw new Error("No response generated")
-        }
-      } catch (error) {
-        console.error("Error in chat:", error)
+      if (response.ok) {
         updateChatMessages([
-          ...formData.chatMessages,
+          ...filteredMessages,
           userMessage,
           {
             id: Date.now(),
-            content: "I'm sorry, I'm having trouble connecting right now. Please try again later.",
+            content: data.ai_response, // Use ai_response from Flask API
             role: "assistant",
           },
-        ])
-      } finally {
-        setIsLoading(false)
+        ]);
+      } else {
+        updateChatMessages([
+          ...filteredMessages,
+          userMessage,
+          {
+            id: Date.now(),
+            content: `Error: ${data.message || "Unable to get a response"}`,
+            role: "assistant",
+          },
+        ]);
       }
+    } catch (error) {
+      console.error("Error in chat:", error);
+      updateChatMessages([
+        ...formData.chatMessages.filter(msg => msg.content !== "Thinking..."),
+        userMessage,
+        {
+          id: Date.now(),
+          content: `Connection error: ${error instanceof Error ? error.message : "Unable to reach the server"}`,
+          role: "assistant",
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <Card className="h-[600px] flex flex-col">
@@ -219,7 +166,8 @@ export function Chat({ scanType, diagnosisArea, bodyPartImaged, fracturedBone }:
           <p className="text-sm text-muted-foreground">Diagnostics AI</p>
         </div>
       </CardHeader>
-      <CardContent className="flex-grow overflow-hidden" ref={scrollAreaRef}>
+
+      <CardContent className="flex-grow overflow-hidden">
         <ScrollArea className="h-full pr-4">
           <div className="space-y-4 pb-4">
             {formData.chatMessages.map((message) => (
@@ -233,16 +181,11 @@ export function Chat({ scanType, diagnosisArea, bodyPartImaged, fracturedBone }:
                 </div>
               </div>
             ))}
-            {isLoading && formData.chatMessages[formData.chatMessages.length - 1]?.role === "user" && (
-              <div className="flex justify-start">
-                <div className="rounded-lg px-4 py-2 max-w-[80%] ml-2 bg-muted">
-                  <span className="inline-block animate-pulse">...</span>
-                </div>
-              </div>
-            )}
+            <div ref={scrollRef} />
           </div>
         </ScrollArea>
       </CardContent>
+
       <CardFooter>
         <form
           onSubmit={(e) => {
